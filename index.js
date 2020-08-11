@@ -2,6 +2,7 @@ const Discord = require("discord.js");
 const fs = require('fs');
 const {Readable}=require('stream')
 const {env}=require('process');
+const encode_wav=require('./encode_wav.js')
 require('dotenv').config();
 
 const client = new Discord.Client();
@@ -12,14 +13,15 @@ class Silence extends Readable{
   _read(){this.push(Buffer.from([0xF8,0xFF,0xFE]))}
 }
 
+var is_recording=false;
+var filename='';
+
 // make a new stream for each time someone starts to talk
 function generateOutputFile(channel, member) {
   // use IDs instead of username cause some people have stupid emojis in their name
-  const fileName = `./recordings/${channel.id}-${member.id}-${Date.now()}.pcm`;
-  return fs.createWriteStream(fileName);
+  filename = `./recordings/${channel.id}-${member.id}-${Date.now()}.pcm`;
+  return fs.createWriteStream(filename);
 }
-
-var is_recording=false
 
 client.on('message', msg => {
   if (msg.content.startsWith(config.prefix+'join')) {
@@ -62,6 +64,7 @@ client.on('message', msg => {
     let [command, ...channelName] = msg.content.split(" ");
     let voiceChannel = msg.guild.channels.cache.find(ch => ch.name === channelName.join(" "));
     voiceChannel.leave();
+    if(filename)encode_wav(filename).catch(console.log);
   }
 });
 
