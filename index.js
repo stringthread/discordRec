@@ -2,7 +2,7 @@ const Discord = require("discord.js");
 const fs = require('fs');
 const {Readable}=require('stream')
 const {env}=require('process');
-const encode_wav=require('./encode_wav.js')
+const encode_voice=require('./encode_voice/encode_voice.js')
 require('dotenv').config();
 
 const client = new Discord.Client();
@@ -15,6 +15,8 @@ class Silence extends Readable{
 
 var is_recording=false;
 var filename='';
+var audioStream=null;
+var outputStream=null;
 
 // make a new stream for each time someone starts to talk
 function generateOutputFile(channel, member) {
@@ -45,9 +47,9 @@ client.on('message', msg => {
             msg.channel.send(`I'm listening to ${user}`);
             is_recording=true
             // this creates a 16-bit signed PCM, stereo 48KHz PCM stream.
-            const audioStream = conn.receiver.createStream(user,{mode:'pcm',end:'manual'});
+            audioStream = conn.receiver.createStream(user,{mode:'pcm',end:'manual'});
             // create an output stream so we can dump our data in a file
-            const outputStream = generateOutputFile(voiceChannel, user);
+            outputStream = generateOutputFile(voiceChannel, user);
             // pipe our audio data into the file stream
             audioStream.pipe(outputStream);
             // when the stream ends (the user stopped talking) tell the user
@@ -64,7 +66,7 @@ client.on('message', msg => {
     let [command, ...channelName] = msg.content.split(" ");
     let voiceChannel = msg.guild.channels.cache.find(ch => ch.name === channelName.join(" "));
     voiceChannel.leave();
-    if(filename)encode_wav(filename).catch(console.log);
+    if(filename)encode_voice(filename).catch(console.log);
   }
 });
 
