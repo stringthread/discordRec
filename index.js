@@ -1,5 +1,6 @@
 const Discord = require("discord.js");
 const fs = require('fs');
+const {EventEmitter} = require('events');
 const {Readable}=require('stream')
 const {env}=require('process');
 const encode_voice=require('./encode_voice/encode_voice.js')
@@ -11,24 +12,41 @@ class Silence extends Readable{
   _read(){this.push(Buffer.from([0xF8,0xFF,0xFE]))}
 }
 
+class FileSave extends EventEmitter{
+  constructor(audioStream,filename){
+    super();
+    this.rs=audioStream;
+    this.filename=filename;
+    this.ws=fs.createWriteStream(this.filename);
+    this.rs.pipe(this.ws);
+    this.rs.on('end',(()=>this.emit('end')).bind(this));
+    this.rs.on('error',((e)=>this.emit({'err':e,'obj':this.rs,'obj_name':'FileSave.rs'})).bind(this));
+    this.ws.on('error',((e)=>this.emit({'err':e,'obj':this.ws,'obj_name':'FileSave.ws'})).bind(this));
+  }
+  encode(){
+    if(this.filename) encode_voice(this.filename).catch(console.log);
+  }
+}
+
 class Bot{
- // make a new stream for each time someone starts to talk
-  generateOutputFile(channel, member) {
-    // use IDs instead of username cause some people have stupid emojis in their name
-    this.filename = `./recordings/${channel.id}-${member.id}-${Date.now()}.pcm`;
-    return fs.createWriteStream(this.filename);
+  generateDirPath(channel){
+    this.dirpath=`./recordings/${channel.name}-${Date.now()}`;
+    fs.mkdir(this.dirpath,()=>{});
+  }
+  generateOutName(channel, member) {
+    if(!this.dirpath)generateDirPath(channel);
+    return `${this.dirpath}/${member.id}-${Date.now()}.pcm`;
   }
 
   constructor(id){
     this.client = new Discord.Client();
 
     this.id=id;
-    this.is_recording=false;
-    this.filename='';
-    this.audioStream=null;
-    this.outputStream=null;
+    this.rec_users=new Set();
+    this.filesaves=new Set();
+    this.dirpath=''
 
-    this.client.on('message', msg => {
+    this.client.on('message', (msg => {
       if (msg.content.startsWith(config.prefix+'join')) {
         let [command, ...channelName] = msg.content.split(" ");
         if (!msg.guild) {
@@ -39,27 +57,24 @@ class Bot{
         if (!voiceChannel || voiceChannel.type !== 'voice') {
           return msg.reply(`I couldn't find the channel ${channelName}. Can you spell?`);
         }
+        this.generateDirPath(voiceChannel);
         voiceChannel.join()
           .then(conn => {
             msg.reply('ready!');
             conn.play(new Silence,{type:'opus'});
             //conn.on('speaking',(user,speaking)=>{console.log(`Speaking: ${user}, ${speaking}`)});
             conn.on('speaking', (user, speaking) => {
-              if (speaking && !this.is_recording) {
+              if (speaking && !this.rec_users.has(user.id)) {
                 console.log(`Speaking: ${user}`)
                 msg.channel.send(`I'm listening to ${user}`);
-                this.is_recording=true
-                // this creates a 16-bit signed PCM, stereo 48KHz PCM stream.
-                this.audioStream = conn.receiver.createStream(user,{mode:'pcm',end:'manual'});
-                // create an output stream so we can dump our data in a file
-                this.outputStream = this.generateOutputFile(voiceChannel, user);
-                // pipe our audio data into the file stream
-                this.audioStream.pipe(this.outputStream);
-                // when the stream ends (the user stopped talking) tell the user
-                this.audioStream.on('end', () => {
+                this.rec_users.add(user.id);
+                var filesave=new FileSave(conn.receiver.createStream(user,{mode:'pcm',end:'manual'}),this.generateOutName(voiceChannel, user));
+                filesave.on('end', (() => {
                   console.log(`End Speaking: ${user}`);
-                  this.is_recording=false
-                });
+                  this.rec_users.delete(user.id);
+                  this.filesaves.delete(filesave);
+                }).bind(this));
+                this.filesaves.add(filesave);
               }
             });
           })
@@ -69,9 +84,12 @@ class Bot{
         let [command, ...channelName] = msg.content.split(" ");
         let voiceChannel = msg.guild.channels.cache.find(ch => ch.name === channelName.join(" "));
         voiceChannel.leave();
-        if(this.filename)encode_voice(this.filename).catch(console.log);
+        this.rec_users.clear()
+        for(var item of this.filesaves){item.encode();}
+        this.filesaves.clear();
+        this.dirpath='';
       }
-    });
+    }).bind(this));
 
     this.client.login(env[`DISCORD_TOKEN_${this.id+1}`]);
 
