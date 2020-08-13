@@ -5,6 +5,7 @@ const {Readable}=require('stream')
 const {env}=require('process');
 const encode_voice=require('./encode_voice/encode_voice.js')
 const Mixer=require('audio-mixer');
+const {formatToTimeZone}=require('date-fns-timezone');
 require('dotenv').config();
 
 const config = require('./auth.json');
@@ -77,7 +78,9 @@ class Bot{
   generateOutName(channel, member) {
     //if(!this.dirpath)generateDirPath(channel);
     //return `${this.dirpath}/${member.id}-${Date.now()}.pcm`;
-    return `./recordings/${channel.name}-${Date.now()}.pcm`;
+    //return `./recordings/${channel.name}-${Date.now()}.pcm`;
+    var format=`[./recordings/${channel.name}_]YY-MM-DD-HH-mm-ss[.pcm]`;
+    return formatToTimeZone(new Date(), format, { timeZone: 'Asia/Tokyo' })
   }
 
   constructor(id){
