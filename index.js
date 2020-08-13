@@ -10,6 +10,8 @@ require('dotenv').config();
 
 const config = require('./auth.json');
 
+const outputDir=('OUTPUT_DIR' in env)?env.OUTPUT_DIR.replace(/\/$/,''):'./recordings';
+
 class Silence extends Readable{
   _read(){this.push(Buffer.from([0xF8,0xFF,0xFE]))}
 }
@@ -79,7 +81,7 @@ class Bot{
     //if(!this.dirpath)generateDirPath(channel);
     //return `${this.dirpath}/${member.id}-${Date.now()}.pcm`;
     //return `./recordings/${channel.name}-${Date.now()}.pcm`;
-    var format=`[./recordings/${channel.name}_]YY-MM-DD-HH-mm-ss[.pcm]`;
+    var format=`[${outputDir}/${channel.name}_]YY-MM-DD-HH-mm-ss[.pcm]`;
     return formatToTimeZone(new Date(), format, { timeZone: 'Asia/Tokyo' })
   }
 
