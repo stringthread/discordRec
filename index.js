@@ -26,7 +26,9 @@ class MixSave{
       this.add_rs(rs_list[i]);
     }
     this.ws=fs.createWriteStream(this.filename);
+    console.log(`${this.filename} created`);
     this.mixer.pipe(this.ws);
+    this.recording=true;
   }
   add_rs(rs){
     var new_in=this.mixer.input({})
@@ -41,15 +43,17 @@ class MixSave{
     .pipe(new_in);
   }
   close(){
+    if(!this.recording) return;
     this.mixer.unpipe();
     this.mixer.close();
     this.mixer.destroy();
     this.ws.destroy();
+    this.recording=false;
     encode_voice(this.filename);
   }
 }
 
-class FileSave extends EventEmitter{
+/*class FileSave extends EventEmitter{
   constructor(audioStream,filename){
     super();
     this.rs=audioStream;
@@ -63,7 +67,7 @@ class FileSave extends EventEmitter{
   encode(){
     if(this.filename) encode_voice(this.filename).catch(console.log);
   }
-}
+}*/
 
 class Bot{
   generateDirPath(channel){
@@ -81,7 +85,7 @@ class Bot{
 
     this.id=id;
     this.rec_users=new Set();
-    this.filesaves=new Set();
+    //this.filesaves=new Set();
     this.dirpath=''
     this.mixsave=null;
 
@@ -103,14 +107,19 @@ class Bot{
             conn.play(new Silence,{type:'opus'});
             //conn.on('speaking',(user,speaking)=>{console.log(`Speaking: ${user}, ${speaking}`)});
             conn.on('speaking', (user, speaking) => {
-              if (speaking && !this.rec_users.has(user.id)) {
+              if(!user/*||user.id==this.client.user.id*/) return;
+              if (speaking.has(Discord.Speaking.FLAGS.SPEAKING) && !this.rec_users.has(user.id)) {
                 console.log(`Speaking: ${user}`)
                 msg.channel.send(`I'm listening to ${user}`);
-                if(!this.mixsave)this.mixsave=new MixSave(
-                  [conn.receiver.createStream(user,{mode:'pcm',end:'manual'})],
-                  this.generateOutName(voiceChannel, user));
-                else this.mixsave.add_rs(conn.receiver.createStream(user,{mode:'pcm',end:'manual'}));
+                var rs=conn.receiver.createStream(user,{mode:'pcm',end:'manual'});
+                if(!this.mixsave||!this.mixsave.recording)this.mixsave=new MixSave(
+                  [rs], this.generateOutName(voiceChannel, user));
+                else this.mixsave.add_rs(rs);
                 this.rec_users.add(user.id);
+                rs.on('end',(()=>{
+                  console.log('end');
+                  this.rec_users.delete(user.id);
+                }).bind(this));
                 /*var filesave=new FileSave(conn.receiver.createStream(user,{mode:'pcm',end:'manual'}),this.generateOutName(voiceChannel, user));
                 filesave.on('end', (() => {
                   console.log(`End Speaking: ${user}`);
@@ -128,8 +137,8 @@ class Bot{
         let voiceChannel = msg.guild.channels.cache.find(ch => ch.name === channelName.join(" "));
         voiceChannel.leave();
         this.rec_users.clear()
-        for(var item of this.filesaves){item.encode();}
-        this.filesaves.clear();
+        //for(var item of this.filesaves){item.encode();}
+        //this.filesaves.clear();
         this.mixsave.close();
         this.dirpath='';
       }
