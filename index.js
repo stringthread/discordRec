@@ -90,7 +90,7 @@ class Bot{
   }
 
   sel_bot=(ch_id,flg_con)=>{
-    if(Bot.channels[this.id]) return false;
+    if(flg_con && Bot.channels[this.id]) return false;
     if(Bot.ch2bot.has(ch_id)) {
       return Bot.ch2bot.get(ch_id)==this.id;
     }
