@@ -73,6 +73,10 @@ class MixSave{
 }*/
 
 class Bot{
+  static num_bots=0;
+  static channels=[];
+  static ch2bot=new Map();
+
   generateDirPath(channel){
     this.dirpath=`./recordings/${channel.name}-${Date.now()}`;
     fs.mkdir(this.dirpath,()=>{});
@@ -85,10 +89,25 @@ class Bot{
     return formatToTimeZone(new Date(), format, { timeZone: 'Asia/Tokyo' })
   }
 
-  constructor(id){
+  sel_bot=(ch_id,flg_con)=>{
+    if(Bot.channels[this.id]) return false;
+    if(Bot.ch2bot.has(ch_id)) {
+      return Bot.ch2bot.get(ch_id)==this.id;
+    }
+    for (var i = 0; i < this.id; i++) {
+      if(!Bot.channels[i]) return false;
+    }
+    if(!flg_con) return false;
+    Bot.channels[this.id]=ch_id;
+    Bot.ch2bot.set(ch_id,this.id);
+    return true;
+  }
+
+  constructor(){
+    Bot.channels.push(0)
     this.client = new Discord.Client();
 
-    this.id=id;
+    this.id=(Bot.num_bots++);
     this.rec_users=new Set();
     //this.filesaves=new Set();
     this.dirpath=''
@@ -106,6 +125,7 @@ class Bot{
           return msg.reply(`I couldn't find the channel ${channelName}. Can you spell?`);
         }
         //this.generateDirPath(voiceChannel);
+        if(!this.sel_bot(voiceChannel.id,true))return;
         voiceChannel.join()
           .then(conn => {
             msg.reply('ready!');
@@ -140,11 +160,14 @@ class Bot{
       if(msg.content.startsWith(config.prefix+'leave')) {
         let [command, ...channelName] = msg.content.split(" ");
         let voiceChannel = msg.guild.channels.cache.find(ch => ch.name === channelName.join(" "));
+        if(!this.sel_bot(voiceChannel.id,false))return;
         voiceChannel.leave();
+        Bot.channels[this.id]=0;
+        Bot.ch2bot.delete(voiceChannel.id);
         this.rec_users.clear()
         //for(var item of this.filesaves){item.encode();}
         //this.filesaves.clear();
-        this.mixsave.close();
+        if(this.mixsave) this.mixsave.close();
         this.dirpath='';
       }
     }).bind(this));
@@ -157,4 +180,4 @@ class Bot{
   }
 }
 
-var bots=[...Array(env.NUM_BOTS)].map((_,i)=>new Bot(i));
+var bots=[...Array(parseInt(env.NUM_BOTS))].map((_,i)=>new Bot(i));
