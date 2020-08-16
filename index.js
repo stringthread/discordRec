@@ -76,6 +76,7 @@ class Bot{
   static num_bots=0;
   static channels=[];
   static ch2bot=new Map();
+  static bot_ids=new Set();
 
   generateDirPath(channel){
     this.dirpath=`./recordings/${channel.name}-${Date.now()}`;
@@ -103,6 +104,61 @@ class Bot{
     return true;
   }
 
+  start=(msg,file_prefix,voiceChannel)=>{
+    if(!this.sel_bot(voiceChannel.id,true))return;
+    voiceChannel.join()
+    .then(conn => {
+      msg.reply('ready!');
+      conn.play(new Silence,{type:'opus'});
+      //conn.on('speaking',(user,speaking)=>{console.log(`Speaking: ${user}, ${speaking}`)});
+      conn.on('speaking', (user, speaking) => {
+        if(!user/*||user.id==this.client.user.id*/) return;
+        if (speaking.has(Discord.Speaking.FLAGS.SPEAKING) && !this.rec_users.has(user.id)) {
+          console.log(`Speaking: ${user}`)
+          msg.channel.send(`I'm listening to ${user}`);
+          var rs=conn.receiver.createStream(user,{mode:'pcm',end:'manual'});
+          if(!this.mixsave||!this.mixsave.recording)this.mixsave=new MixSave(
+            [rs], this.generateOutName(file_prefix, voiceChannel));
+          else this.mixsave.add_rs(rs);
+          this.rec_users.add(user.id);
+          rs.on('end',(()=>{
+            console.log('end');
+            this.rec_users.delete(user.id);
+          }).bind(this));
+          /*var filesave=new FileSave(conn.receiver.createStream(user,{mode:'pcm',end:'manual'}),this.generateOutName(voiceChannel, user));
+          filesave.on('end', (() => {
+            console.log(`End Speaking: ${user}`);
+            this.rec_users.delete(user.id);
+            this.filesaves.delete(filesave);
+          }).bind(this));
+          this.filesaves.add(filesave);*/
+        }
+      });
+      this.check_if_empty=(old_st,new_st)=>{
+        if(!old_st.channel || old_st.channel.id!=Bot.channels[this.id]) return;
+        if(new_st.channel && new_st.channel.id==Bot.channels[this.id]) return;
+        if(old_st.channel.members.every((v,i)=>Bot.bot_ids.has(i))){
+          this.stop(msg,voiceChannel);
+        }
+      };
+      this.client.on('voiceStateUpdate',this.check_if_empty);
+    })
+    .catch(console.log);
+  }
+
+  stop=(msg,voiceChannel)=>{
+    if(!this.sel_bot(voiceChannel.id,false))return;
+    voiceChannel.leave();
+    Bot.channels[this.id]=0;
+    Bot.ch2bot.delete(voiceChannel.id);
+    this.rec_users.clear()
+    //for(var item of this.filesaves){item.encode();}
+    //this.filesaves.clear();
+    if(this.mixsave) this.mixsave.close();
+    this.dirpath='';
+    this.client.off('voiceStateUpdate',this.check_if_empty);
+  }
+
   constructor(){
     Bot.channels.push(0)
     this.client = new Discord.Client();
@@ -125,70 +181,34 @@ class Bot{
           ch_name=args[0];
           args[0]='';
           voiceChannel = msg.guild.channels.cache.find(ch => ch.name === ch_name);
+          if (!voiceChannel || voiceChannel.type !== 'voice') return msg.reply(`I couldn't find the channel ${ch_name}.`);
         }else if(command=='start'){
           voiceChannel=msg.member.voice.channel;
           if(!voiceChannel) return msg.reply('You must join a voice channel first!');
           ch_name=voiceChannel.name;
         }
         //console.log(voiceChannel.id);
-        if (!voiceChannel || voiceChannel.type !== 'voice') {
-          return msg.reply(`I couldn't find the channel ${ch_name}. Can you spell?`);
-        }
         const file_prefix=args.join('_');
         //this.generateDirPath(voiceChannel);
-        if(!this.sel_bot(voiceChannel.id,true))return;
-        voiceChannel.join()
-          .then(conn => {
-            msg.reply('ready!');
-            conn.play(new Silence,{type:'opus'});
-            //conn.on('speaking',(user,speaking)=>{console.log(`Speaking: ${user}, ${speaking}`)});
-            conn.on('speaking', (user, speaking) => {
-              if(!user/*||user.id==this.client.user.id*/) return;
-              if (speaking.has(Discord.Speaking.FLAGS.SPEAKING) && !this.rec_users.has(user.id)) {
-                console.log(`Speaking: ${user}`)
-                msg.channel.send(`I'm listening to ${user}`);
-                var rs=conn.receiver.createStream(user,{mode:'pcm',end:'manual'});
-                if(!this.mixsave||!this.mixsave.recording)this.mixsave=new MixSave(
-                  [rs], this.generateOutName(file_prefix, voiceChannel));
-                else this.mixsave.add_rs(rs);
-                this.rec_users.add(user.id);
-                rs.on('end',(()=>{
-                  console.log('end');
-                  this.rec_users.delete(user.id);
-                }).bind(this));
-                /*var filesave=new FileSave(conn.receiver.createStream(user,{mode:'pcm',end:'manual'}),this.generateOutName(voiceChannel, user));
-                filesave.on('end', (() => {
-                  console.log(`End Speaking: ${user}`);
-                  this.rec_users.delete(user.id);
-                  this.filesaves.delete(filesave);
-                }).bind(this));
-                this.filesaves.add(filesave);*/
-              }
-            });
-          })
-          .catch(console.log);
+        this.start(msg,file_prefix,voiceChannel);
       }
       if(msg.content.startsWith(config.prefix+'stop')) {
         let [prefix, command, ...ch_name] = msg.content.split(" ");
         let voiceChannel = null;
         if(ch_name.length){
           voiceChannel=msg.guild.channels.cache.find(ch => ch.name === ch_name.join(" "));
+          if(!voiceChannel||voiceChannel.type!=='voice'){
+            if(this.id==0) msg.reply(`I couldn't find the channel ${ch_name}.`);
+            return;
+          }
         }else{
           voiceChannel=msg.member.voice.channel;
+          if(!voiceChannel){
+            if(this.id==0) msg.reply('You must join voiceChannel.');
+            return;
+          }
         }
-        if(!voiceChannel||voiceChannel.type!=='voice'){
-          if(this.id==0) console.log('?rec leave: cannot get voiceChannel.');
-          return;
-        }
-        if(!this.sel_bot(voiceChannel.id,false))return;
-        voiceChannel.leave();
-        Bot.channels[this.id]=0;
-        Bot.ch2bot.delete(voiceChannel.id);
-        this.rec_users.clear()
-        //for(var item of this.filesaves){item.encode();}
-        //this.filesaves.clear();
-        if(this.mixsave) this.mixsave.close();
-        this.dirpath='';
+        this.stop(msg,voiceChannel);
       }
     }).bind(this));
 
@@ -196,6 +216,7 @@ class Bot{
 
     this.client.on('ready', () => {
       console.log('ready!');
+      Bot.bot_ids.add(this.client.user.id);
     });
   }
 }
