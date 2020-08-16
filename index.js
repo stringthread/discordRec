@@ -81,11 +81,11 @@ class Bot{
     this.dirpath=`./recordings/${channel.name}-${Date.now()}`;
     fs.mkdir(this.dirpath,()=>{});
   }
-  generateOutName(channel, member) {
+  generateOutName(name,channel) {
     //if(!this.dirpath)generateDirPath(channel);
     //return `${this.dirpath}/${member.id}-${Date.now()}.pcm`;
     //return `./recordings/${channel.name}-${Date.now()}.pcm`;
-    var format=`[${outputDir}/${channel.name}_]YY-MM-DD-HH-mm-ss[.pcm]`;
+    var format=`[${outputDir}/${name}_${channel.name}_]YYYYMMDDHHmmss[.pcm]`;
     return formatToTimeZone(new Date(), format, { timeZone: 'Asia/Tokyo' })
   }
 
@@ -114,16 +114,27 @@ class Bot{
     this.mixsave=null;
 
     this.client.on('message', (msg => {
-      if (msg.content.startsWith(config.prefix+'join')) {
-        let [command, ...channelName] = msg.content.split(" ");
+      if (msg.content.startsWith(config.prefix+'start')) {
+        let [prefix, command, ...args] = msg.content.split(" ");
         if (!msg.guild) {
           return msg.reply('no private service is available in your area at the moment. Please contact a service representative for more details.');
         }
-        const voiceChannel = msg.guild.channels.cache.find(ch => ch.name === channelName.join(" "));
+        let ch_name='';
+        let voiceChannel=null;
+        if(command=='start_ch'){
+          ch_name=args[0];
+          args[0]='';
+          voiceChannel = msg.guild.channels.cache.find(ch => ch.name === ch_name);
+        }else if(command=='start'){
+          voiceChannel=msg.member.voice.channel;
+          if(!voiceChannel) return msg.reply('You must join a voice channel first!');
+          ch_name=voiceChannel.name;
+        }
         //console.log(voiceChannel.id);
         if (!voiceChannel || voiceChannel.type !== 'voice') {
-          return msg.reply(`I couldn't find the channel ${channelName}. Can you spell?`);
+          return msg.reply(`I couldn't find the channel ${ch_name}. Can you spell?`);
         }
+        const file_prefix=args.join('_');
         //this.generateDirPath(voiceChannel);
         if(!this.sel_bot(voiceChannel.id,true))return;
         voiceChannel.join()
@@ -138,7 +149,7 @@ class Bot{
                 msg.channel.send(`I'm listening to ${user}`);
                 var rs=conn.receiver.createStream(user,{mode:'pcm',end:'manual'});
                 if(!this.mixsave||!this.mixsave.recording)this.mixsave=new MixSave(
-                  [rs], this.generateOutName(voiceChannel, user));
+                  [rs], this.generateOutName(file_prefix, voiceChannel));
                 else this.mixsave.add_rs(rs);
                 this.rec_users.add(user.id);
                 rs.on('end',(()=>{
@@ -157,9 +168,18 @@ class Bot{
           })
           .catch(console.log);
       }
-      if(msg.content.startsWith(config.prefix+'leave')) {
-        let [command, ...channelName] = msg.content.split(" ");
-        let voiceChannel = msg.guild.channels.cache.find(ch => ch.name === channelName.join(" "));
+      if(msg.content.startsWith(config.prefix+'stop')) {
+        let [prefix, command, ...ch_name] = msg.content.split(" ");
+        let voiceChannel = null;
+        if(ch_name.length){
+          voiceChannel=msg.guild.channels.cache.find(ch => ch.name === ch_name.join(" "));
+        }else{
+          voiceChannel=msg.member.voice.channel;
+        }
+        if(!voiceChannel||voiceChannel.type!=='voice'){
+          if(this.id==0) console.log('?rec leave: cannot get voiceChannel.');
+          return;
+        }
         if(!this.sel_bot(voiceChannel.id,false))return;
         voiceChannel.leave();
         Bot.channels[this.id]=0;
