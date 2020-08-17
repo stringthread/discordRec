@@ -178,8 +178,7 @@ class Bot{
         let ch_name='';
         let voiceChannel=null;
         if(command=='start_ch'){
-          ch_name=args[0];
-          args[0]='';
+          ch_name=args.shift();
           voiceChannel = msg.guild.channels.cache.find(ch => ch.name === ch_name);
           if (!voiceChannel || voiceChannel.type !== 'voice') return msg.reply(`I couldn't find the channel ${ch_name}.`);
         }else if(command=='start'){
