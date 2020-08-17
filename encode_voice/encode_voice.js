@@ -33,7 +33,7 @@ const encode_mp3=function(in_path){
     var rs=fs.createReadStream(in_path)
       .on('error', e=>console.log('input stream exception: ' + e));
 
-    out_path=in_path.replace(/\.wav$/i,'.mp3');
+    var out_path=in_path.replace(/\.wav$/i,'.mp3');
     var ws=fs.createWriteStream(out_path)
       .on('error', e=>console.log('output stream error: ' + e));
 
@@ -88,7 +88,7 @@ const encode_voice=async function(in_path){
     return;
   }
   const size=await get_filesize(in_path).catch(console.log);
-  wav_path=in_path.replace(/\.pcm/,'.wav');
+  var wav_path=in_path.replace(/\.pcm/,'.wav');
   var ws=fs.createWriteStream(wav_path);
   var head=Buffer.from([
     0x52,0x49,0x46,0x46,//'RIFF'
@@ -120,6 +120,7 @@ const encode_voice=async function(in_path){
     return;
   }
   fs.unlink(wav_path,e=>{console.log(`encode_voice: ${e?e:'success'} at ${wav_path} delete`)});
+  fs.chmod(wav_path.replace(/\.wav$/i,'.mp3'),0o777,err=>{if(err) console.log('Chmod: '+err);});
 };
 
 module.exports=encode_voice
