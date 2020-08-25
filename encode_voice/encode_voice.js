@@ -22,7 +22,6 @@ const copy_stream=function(rs,ws,out_path){
       reject(e);
     });
     rs.on('end',()=>{
-      console.log(`encode_voice - Successfully encoded: ${out_path}`);
       resolve(0);
     });
   })
@@ -52,9 +51,7 @@ const encode_mp3=function(in_path){
         '-f': 'mp3'
       }
     }).on('inputAudioCodec', function (codec) {
-      console.log('input audio codec is: ' + codec);
     }).on('success', function (retcode, signal) {
-      console.log('process finished successfully with retcode: ' + retcode + ', signal: ' + signal);
       rs.close();
       ws.close();
       resolve(0);
@@ -77,7 +74,7 @@ const encode_mp3=function(in_path){
 //in_path: input file name
 const encode_voice=async function(in_path){
   if(!((/\.pcm$/i).test(in_path))){
-    console.log('encode_voice - Invalid type input. Only PCM file is supported.')
+    console.log('encode_voice - Invalid type input. Only PCM file is supported.');
     return;
   }
   var rs;
@@ -113,13 +110,13 @@ const encode_voice=async function(in_path){
     console.log(`encode_voice: ${res} at copy_stream`);
     return;
   }
-  fs.unlink(in_path,e=>{console.log(`encode_voice: ${e?e:'success'} at ${in_path} delete`)});
+  fs.unlink(in_path,e=>{if(e) console.log(`encode_voice: ${e} at ${in_path} delete`);});
   var res=await encode_mp3(wav_path);
   if(res){
     console.log(`encode_voice: ${res} at encode_mp3`);
     return;
   }
-  fs.unlink(wav_path,e=>{console.log(`encode_voice: ${e?e:'success'} at ${wav_path} delete`)});
+  fs.unlink(wav_path,e=>{if(e) console.log(`encode_voice: ${e} at ${wav_path} delete`);});
 };
 
 module.exports=encode_voice

@@ -137,8 +137,7 @@ class Bot{
       conn.on('speaking', async (user, speaking) => {
         if(!user/*||user.id==this.client.user.id*/) return;
         if (speaking.has(Discord.Speaking.FLAGS.SPEAKING) && !this.rec_users.has(user.id)) {
-          console.log(`Speaking: ${user}`)
-          msg.channel.send(`I'm listening to ${user}`);
+          console.log(`Speaking: ${user}`);
           var rs=conn.receiver.createStream(user,{mode:'pcm',end:'manual'});
           if(!this.mixsave||!this.mixsave.recording)this.mixsave=new MixSave(
             [rs], await this.generateOutName(file_prefix, voiceChannel));
