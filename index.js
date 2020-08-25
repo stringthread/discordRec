@@ -210,6 +210,9 @@ class Bot{
         }
         //console.log(voiceChannel.id);
         const file_prefix=args.join('_');
+        if(file_prefix.indexOf('"')!==-1){
+          return msg.reply('You cannot use double quotation mark.');
+        }
         //this.generateDirPath(voiceChannel);
         this.start(msg,file_prefix,voiceChannel);
       }
