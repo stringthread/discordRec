@@ -3,7 +3,7 @@ const fs = require('fs');
 const {EventEmitter} = require('events');
 const {Readable}=require('stream')
 const {env}=require('process');
-const encode_voice=require('./encode_voice/encode_voice.js')
+const encode_voice=require('./encode_voice/encode_voice.js');
 const Mixer=require('audio-mixer');
 const {formatToTimeZone}=require('date-fns-timezone');
 require('dotenv').config();
@@ -82,10 +82,33 @@ class Bot{
     this.dirpath=`./recordings/${channel.name}-${Date.now()}`;
     fs.mkdir(this.dirpath,()=>{});
   }
-  generateOutName(name,channel) {
+  async generateOutName(name,channel) {
     //if(!this.dirpath)generateDirPath(channel);
     //return `${this.dirpath}/${member.id}-${Date.now()}.pcm`;
     //return `./recordings/${channel.name}-${Date.now()}.pcm`;
+    let arr_name=name.split('_');
+    let flg_dir=await new Promise((resolve,reject)=>{
+      fs.access(`${outputDir}/${arr_name[0]}`,(err)=>{
+        if(!err){
+          resolve(true);
+          return;
+        }else if(err.code==='ENOENT'){
+          resolve(false);
+          return;
+        }else{
+          console.log(`Error on fig_dir: ${err.message}`);
+          resolve(false);
+          return;
+        }
+      })
+    });
+    if(flg_dir){
+      console.log(arr_name);
+      name=`${arr_name.shift()}/${arr_name.join('_')}`;
+    }else{
+      console.log('failed: '+arr_name);
+      name=arr_name.join('_');
+    }
     var format=`[${outputDir}/${name}_${channel.name}_]YYYYMMDDHHmmss[.pcm]`;
     return formatToTimeZone(new Date(), format, { timeZone: 'Asia/Tokyo' })
   }
@@ -111,14 +134,14 @@ class Bot{
       msg.reply('ready!');
       conn.play(new Silence,{type:'opus'});
       //conn.on('speaking',(user,speaking)=>{console.log(`Speaking: ${user}, ${speaking}`)});
-      conn.on('speaking', (user, speaking) => {
+      conn.on('speaking', async (user, speaking) => {
         if(!user/*||user.id==this.client.user.id*/) return;
         if (speaking.has(Discord.Speaking.FLAGS.SPEAKING) && !this.rec_users.has(user.id)) {
           console.log(`Speaking: ${user}`)
           msg.channel.send(`I'm listening to ${user}`);
           var rs=conn.receiver.createStream(user,{mode:'pcm',end:'manual'});
           if(!this.mixsave||!this.mixsave.recording)this.mixsave=new MixSave(
-            [rs], this.generateOutName(file_prefix, voiceChannel));
+            [rs], await this.generateOutName(file_prefix, voiceChannel));
           else this.mixsave.add_rs(rs);
           this.rec_users.add(user.id);
           rs.on('end',(()=>{
