@@ -37,11 +37,11 @@ class MixSave{
     var new_in=this.mixer.input({})
     rs.on('end',(()=>{
       this.mixer.removeInput(new_in);
-      if(this.mixer.inputs.length==0) this.close();
+      //if(this.mixer.inputs.length==0) this.close();
     }).bind(this))
     .on('close',(()=>{
       this.mixer.removeInput(new_in);
-      if(this.mixer.inputs.length==0) this.close();
+      //if(this.mixer.inputs.length==0) this.close();
     }).bind(this))
     .pipe(new_in);
   }
