@@ -109,8 +109,8 @@ class Bot{
       console.log('failed: '+arr_name);
       name=arr_name.join('_');
     }
-    var format=`[${outputDir}/${name}_${channel.name}_]YYYYMMDDHHmmss[.pcm]`;
-    return formatToTimeZone(new Date(), format, { timeZone: 'Asia/Tokyo' })
+    var format='YYYYMMDDHHmmss';
+    return `${outputDir}/${name}_${channel.name}_`+formatToTimeZone(new Date(), format, { timeZone: 'Asia/Tokyo' })+'.pcm';
   }
 
   sel_bot=(ch_id,flg_con)=>{
@@ -144,7 +144,7 @@ class Bot{
           else this.mixsave.add_rs(rs);
           this.rec_users.add(user.id);
           rs.on('end',(()=>{
-            console.log('end');
+            console.log(`end: ${user}`);
             this.rec_users.delete(user.id);
           }).bind(this));
           /*var filesave=new FileSave(conn.receiver.createStream(user,{mode:'pcm',end:'manual'}),this.generateOutName(voiceChannel, user));
@@ -157,10 +157,15 @@ class Bot{
         }
       });
       this.check_if_empty=(old_st,new_st)=>{
+        if(this.fin_timeout && new_st.channel.members.some((v,i)=>!Bot.bot_ids.has(i))){
+          if(!new_st.channel || new_st.channel.id!=Bot.channels[this.id]) return;
+          clearTimeout(this.fin_timeout);
+          this.fin_timeout=null;
+        }
         if(!old_st.channel || old_st.channel.id!=Bot.channels[this.id]) return;
         if(new_st.channel && new_st.channel.id==Bot.channels[this.id]) return;
         if(old_st.channel.members.every((v,i)=>Bot.bot_ids.has(i))){
-          this.stop(msg,voiceChannel);
+          this.fin_timeout=setTimeout(this.stop,15000,msg,voiceChannel);
         }
       };
       this.client.on('voiceStateUpdate',this.check_if_empty);
@@ -190,6 +195,7 @@ class Bot{
     //this.filesaves=new Set();
     this.dirpath=''
     this.mixsave=null;
+    this.fin_timeout=null;
 
     this.client.on('message', (msg => {
       if (msg.content.startsWith(config.prefix+'start')) {
@@ -239,7 +245,6 @@ class Bot{
     this.client.login(env[`DISCORD_TOKEN_${this.id+1}`]);
 
     this.client.on('ready', () => {
-      console.log('ready!');
       Bot.bot_ids.add(this.client.user.id);
     });
   }
