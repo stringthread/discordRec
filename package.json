@@ -2,9 +2,8 @@
   "name": "discordRec",
   "version": "1.0.0",
   "description": "Audio Recording Bot for Discord",
-  "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "discordRec": "node index.js"
   },
   "keywords": [],
   "author": "Yuito Sakata",
