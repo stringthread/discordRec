@@ -51,9 +51,10 @@ https://discordpy.readthedocs.io/ja/latest/discord.html を参考に、Discord B
 ### Botの招待
 
 Discord Developer Portalからアプリケーションを選択し、OAuth2 > URL Generator にアクセスしてください。この際、以下の権限設定が必要です。
-- SCOPES:
+#### SCOPES:
  - bot
-- BOT PERMISSIONS:
+
+#### BOT PERMISSIONS:
  - Read Messages/View Channels (GENERAL PERMISSIONS)
  - Send Messages (TEXT PERMISSIONS)
  - Connect (VOICE PERMISSIONS)
@@ -67,16 +68,16 @@ Discord Developer Portalからアプリケーションを選択し、OAuth2 > UR
 
 `?rec `から始まるテキストメッセージに反応して、Botが録音を開始・終了します。（`auth.json`でprefixを変更した場合は、設定した内容に従います）
 
-- ?rec start [保存先フォルダ名(省略可)] [ファイル名]
+#### ?rec start [保存先フォルダ名(省略可)] [ファイル名]
  - コマンド実行者が参加しているボイスチャンネルで録音を開始します
  - 保存先フォルダ名: 最初のプロパティと同名のフォルダが録音先にあった場合、そのフォルダに保存されます。フォルダが存在しなかった場合、ファイル名の一部として扱われます。
  - ファイル名: 保存されるファイル名を指定します。スペースが含まれていた場合、アンダーバーに変換されます。なお、実際には、ファイル名の末尾にチャンネル名と録音開始時刻が追加されます。
 
-- ?rec start_ch [チャンネル名] [保存先フォルダ名(省略可)] [ファイル名]
+#### ?rec start_ch [チャンネル名] [保存先フォルダ名(省略可)] [ファイル名]
  - 指定したチャンネルで録音を開始します。
  - チャンネル名: 録音する対象のチャンネル名を指定します。スペースを含む名前は指定できない点に注意してください。
 
-- ?rec stop [チャンネル名(省略可)]
+#### ?rec stop [チャンネル名(省略可)]
  - 録音を終了します。
  - チャンネル名: 録音を終了する対象のチャンネル名を指定します。スペースを含む名前は指定できない点に注意してください。
  - チャンネル名を指定しなかった場合、コマンド実行者が参加しているボイスチャンネルの録音を終了します。
